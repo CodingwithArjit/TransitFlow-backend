@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
+const tripRoutes = require("./routes/trips");
 require("dotenv").config();
 
 const authRoutes = require("./routes/auth");
@@ -28,6 +29,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/buses", busRoutes);
 app.use("/api/routes", routeRoutes);
 app.use("/api/stops", stopRoutes);
+app.use("/api/trips", tripRoutes);
 
 app.get("/", (req, res) => {
   res.json({
