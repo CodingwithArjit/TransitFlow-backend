@@ -8,16 +8,28 @@ const router = express.Router();
 
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, phone, password } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!name || !email || !phone || !password) {
+      return res.status(400).json({
+        message: "All fields are required"
+      });
     }
 
-    const exists = await User.findOne({ email });
+    const emailExists = await User.findOne({ email });
 
-    if (exists) {
-      return res.status(400).json({ message: "User already exists" });
+    if (emailExists) {
+      return res.status(400).json({
+        message: "Email already registered"
+      });
+    }
+
+    const phoneExists = await User.findOne({ phone });
+
+    if (phoneExists) {
+      return res.status(400).json({
+        message: "Phone number already registered"
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -25,8 +37,10 @@ router.post("/register", async (req, res) => {
     const user = await User.create({
       name,
       email,
+      phone,
       password: hashedPassword,
-      role: "passenger"
+      role: "passenger",
+      isVerified: false
     });
 
     res.status(201).json({
@@ -35,34 +49,57 @@ router.post("/register", async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role
       }
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      message: err.message
+    });
   }
 });
 
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { login, password } = req.body;
 
-    const user = await User.findOne({ email });
+    if (!login || !password) {
+      return res.status(400).json({
+        message: "Login and password are required"
+      });
+    }
+
+    const user = await User.findOne({
+      $or: [
+        { email: login.toLowerCase() },
+        { phone: login }
+      ]
+    });
 
     if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(400).json({
+        message: "Invalid email/phone or password"
+      });
     }
 
     const match = await bcrypt.compare(password, user.password);
 
     if (!match) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(400).json({
+        message: "Invalid email/phone or password"
+      });
     }
 
     const token = jwt.sign(
-      { userId: user._id, role: user.role },
+      {
+        userId: user._id,
+        role: user.role
+      },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      {
+        expiresIn: "7d"
+      }
     );
 
     res.json({
@@ -72,18 +109,22 @@ router.post("/login", async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role
       }
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      message: err.message
+    });
   }
 });
+
 router.get("/drivers", auth, adminOnly, async (req, res) => {
   try {
     const drivers = await User.find(
       { role: "driver" },
-      "name email"
+      "name email phone"
     );
 
     res.json(drivers);
